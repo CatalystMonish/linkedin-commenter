@@ -1,0 +1,73 @@
+:root {
+  --bg: #ffffff;
+  --fg: #1d2226;
+  --muted: #6b7681;
+  --line: #e3e6e8;
+  --accent: #0a66c2;
+  --bar: #cfe0f3;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1b1f23;
+    --fg: #e9e9e9;
+    --muted: #9aa5ad;
+    --line: #303740;
+    --accent: #4b9cf5;
+    --bar: #2c3d52;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  width: 288px;
+  margin: 0;
+  padding: 14px;
+  background: var(--bg);
+  color: var(--fg);
+  font: 400 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+header { display: flex; align-items: baseline; justify-content: space-between; }
+h1 { margin: 0; font-size: 16px; }
+.sub { color: var(--muted); font-size: 11px; }
+
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0; }
+.stat {
+  padding: 10px 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  text-align: center;
+}
+.stat .n { display: block; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--accent); }
+.stat .l { display: block; margin-top: 2px; color: var(--muted); font-size: 11px; }
+
+.chart { margin-bottom: 12px; }
+.chart-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; color: var(--muted); font-size: 11px; }
+.bars { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; align-items: end; height: 56px; }
+.bar-wrap { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 4px; }
+.bar { width: 100%; min-height: 2px; border-radius: 3px 3px 0 0; background: var(--bar); }
+.bar.today { background: var(--accent); }
+.bar-label { color: var(--muted); font-size: 10px; }
+
+.row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; }
+.settings { border-top: 1px solid var(--line); margin-top: 4px; }
+.label { color: var(--fg); }
+
+.adjust { display: flex; align-items: center; gap: 8px; }
+.adjust button {
+  width: 26px; height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+.adjust button:hover { border-color: var(--accent); color: var(--accent); }
+.count { min-width: 22px; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+select { background: transparent; color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; }
+footer { border-top: 1px solid var(--line); padding-top: 8px; margin-top: 4px; }

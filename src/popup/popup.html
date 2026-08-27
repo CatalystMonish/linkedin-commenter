@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Comments</h1>
+      <span class="sub" id="date"></span>
+    </header>
+
+    <section class="stats">
+      <div class="stat"><span class="n" data-k="today">0</span><span class="l">Today</span></div>
+      <div class="stat"><span class="n" data-k="week">0</span><span class="l">This Week</span></div>
+      <div class="stat"><span class="n" data-k="month">0</span><span class="l">This Month</span></div>
+    </section>
+
+    <section class="chart">
+      <div class="chart-head"><span>Last 7 days</span><span id="peak" class="sub"></span></div>
+      <div class="bars" id="bars"></div>
+    </section>
+
+    <section class="row">
+      <span class="label">Adjust today</span>
+      <div class="adjust">
+        <button id="minus" title="Remove one from today">&minus;</button>
+        <span id="todayCount" class="count">0</span>
+        <button id="plus" title="Add one to today">+</button>
+      </div>
+    </section>
+
+    <section class="settings">
+      <label class="row">
+        <span class="label">Show widget on LinkedIn</span>
+        <input type="checkbox" id="widgetEnabled" />
+      </label>
+      <label class="row">
+        <span class="label">Week starts</span>
+        <select id="weekStart">
+          <option value="1">Monday</option>
+          <option value="0">Sunday</option>
+        </select>
+      </label>
+      <label class="row">
+        <span class="label">Debug logging</span>
+        <input type="checkbox" id="debug" />
+      </label>
+    </section>
+
+    <footer class="sub">Counts start when the extension was installed. Data stays on this device.</footer>
+
+    <script src="../lib/constants.js"></script>
+    <script src="../lib/dates.js"></script>
+    <script src="../lib/storage.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>
