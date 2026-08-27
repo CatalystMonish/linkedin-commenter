@@ -28,6 +28,7 @@
       type: MSG.COMMENT_CREATED,
       id: typeof data.id === 'string' ? data.id : null,
       kind: data.kind === 'reply' ? 'reply' : 'comment',
+      via: 'network',
     });
   });
 

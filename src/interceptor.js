@@ -53,10 +53,19 @@
     }
   }
 
+  function isPost(method) {
+    return String(method || 'GET').toUpperCase() === 'POST';
+  }
+
   function isCandidate(url, method) {
-    if (String(method || 'GET').toUpperCase() !== 'POST') return false;
+    if (!isPost(method)) return false;
     const u = String(url || '');
     return VOYAGER_RE.test(u) || COMMENT_HINT_RE.test(u);
+  }
+
+  /** Debug mode widens the net to every POST so a moved endpoint is visible. */
+  function shouldInspect(url, method) {
+    return isCandidate(url, method) || (debug && isPost(method));
   }
 
   /** Bodies arrive as strings, URLSearchParams, FormData or Blobs. */
@@ -130,7 +139,7 @@
     }
     if (!verdict.match || !ok) return;
     window.postMessage(
-      { source: SOURCE, type: 'comment_created', id: uuid(), kind: verdict.kind, ts: Date.now() },
+      { source: SOURCE, type: 'comment_created', id: uuid(), kind: verdict.kind, via: 'network', ts: Date.now() },
       window.location.origin
     );
   }
@@ -151,7 +160,7 @@
           url = input.url;
           method = (init && init.method) || input.method || 'GET';
         }
-        if (isCandidate(url, method)) {
+        if (shouldInspect(url, method)) {
           if (init && init.body != null) {
             bodyPromise = bodyToText(init.body);
           } else if (input && typeof input === 'object' && typeof input.clone === 'function') {
@@ -200,7 +209,7 @@
   XMLHttpRequest.prototype.send = function (body) {
     try {
       const meta = this.__lct;
-      if (meta && isCandidate(meta.url, meta.method)) {
+      if (meta && shouldInspect(meta.url, meta.method)) {
         const bodyPromise = bodyToText(body);
         const xhr = this;
         this.addEventListener('loadend', function () {

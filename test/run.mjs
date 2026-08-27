@@ -5,7 +5,7 @@ import path from 'path';
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
 let failed = 0;
-for (const file of ['lib.test.mjs', 'interceptor.test.mjs']) {
+for (const file of ['lib.test.mjs', 'interceptor.test.mjs', 'dom.test.mjs']) {
   console.log(`\n=== ${file} ===`);
   try {
     execFileSync(process.execPath, [path.join(dir, file)], { stdio: 'inherit' });

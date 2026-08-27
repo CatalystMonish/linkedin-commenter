@@ -24,8 +24,15 @@ comment text. The service worker de-duplicates on that id and increments today's
 counter in `chrome.storage.local`.
 
 Deliberately not counted: failed sends, edits (a comment URN in the path, or a
-`patch` body), deletes, reactions, follows, and every other request through the
-shared `/graphql` endpoint.
+`patch` body), deletes, reactions, follows, post/share creation (which also
+carries a `commentary` field), and every other request through the shared
+`/graphql` endpoint.
+
+If LinkedIn's request shape changes enough that nothing matches, a DOM fallback
+takes over: it watches for the comment editor being submitted (the submit button
+or Enter with text in the box). The worker ignores fallback events the moment
+network detection fires even once, so the two can never both count the same
+comment. The popup shows which one is live.
 
 Counts are stored per local day (`YYYY-MM-DD`). Week and month totals are summed
 from those day buckets at read time, so nothing has to reset at midnight and the
@@ -84,6 +91,10 @@ with the match decision:
 [LCT] POST 201 /voyager/api/socialDash/normComments MATCH comment
 [LCT] POST 200 /voyager/api/graphql skip: graphql, not a comment operation
 ```
+
+With debug on, *every* POST is logged, not just ones on a comment-looking URL —
+so an endpoint we don't recognise still shows up with its payload. The fallback
+logs under `[LCT dom]`.
 
 Filter the console on `[LCT]`. Post one comment and confirm exactly one `MATCH`.
 Then like a post, react to a comment, follow someone and edit an old comment —

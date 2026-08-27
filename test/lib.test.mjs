@@ -85,5 +85,18 @@ eq('setting persisted', store.lct.settings.weekStart, 0);
 store.lct = { garbage: true };
 eq('migrates junk state', (await LCT.storage.getSummary()), { today: 0, week: 0, month: 0 });
 
+// --- detection source gating ---
+store.lct = LCT.storage.emptyState();
+const dom1 = await LCT.storage.recordComment('dom-1', 'comment', 'dom');
+eq('dom counts while network is unproven', dom1.counted, true);
+const net1 = await LCT.storage.recordComment('net-1', 'comment', 'network');
+eq('network always counts', net1.counted, true);
+eq('network marked as working', store.lct.detection.networkSeen, true);
+const dom2 = await LCT.storage.recordComment('dom-2', 'comment', 'dom');
+eq('dom ignored once network works', dom2.counted, false);
+eq('dom ignore reason', dom2.reason, 'dom fallback ignored, network detection works');
+eq('total after gating', (await LCT.storage.getSummary()).today, 2);
+eq('last source recorded', store.lct.detection.lastVia, 'network');
+
 console.log(fails ? `\n${fails} FAILED` : '\nall passed');
 process.exit(fails ? 1 : 0);

@@ -35,8 +35,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return;
     }
 
-    LCT.storage.recordComment(message.id, message.kind).then(async ({ counted, summary }) => {
-      console.debug('[LCT] event', message.kind, message.id, counted ? 'counted' : 'duplicate, ignored', summary);
+    LCT.storage.recordComment(message.id, message.kind, message.via).then(async ({ counted, reason, summary }) => {
+      console.debug('[LCT]', message.via || 'network', 'event', message.kind, counted ? 'counted' : 'ignored: ' + reason, summary);
       if (!counted) return;
       await refreshBadge(summary);
       broadcast(summary);

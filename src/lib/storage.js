@@ -12,6 +12,10 @@
       days: {},          // "YYYY-MM-DD" -> { total, replies }
       settings: { ...DEFAULT_SETTINGS },
       seenIds: [],       // FIFO of recent event ids, newest last
+      // Network detection is authoritative. Once it has fired even once, DOM
+      // fallback events are ignored so the two can't both count the same
+      // comment.
+      detection: { networkSeen: false, lastEventAt: null, lastVia: null },
     };
   }
 
@@ -21,6 +25,7 @@
     next.days = state.days && typeof state.days === 'object' ? state.days : {};
     next.settings = { ...DEFAULT_SETTINGS, ...(state.settings || {}) };
     next.seenIds = Array.isArray(state.seenIds) ? state.seenIds : [];
+    next.detection = { ...emptyState().detection, ...(state.detection || {}) };
     next.schemaVersion = SCHEMA_VERSION;
     return next;
   }
@@ -75,9 +80,13 @@
    * Record one comment. Returns { counted, summary } — counted is false when
    * the event id was already seen.
    */
-  function recordComment(eventId, kind) {
+  function recordComment(eventId, kind, via) {
     return update((state) => {
-      if (eventId && state.seenIds.includes(eventId)) return { counted: false };
+      if (eventId && state.seenIds.includes(eventId)) return { counted: false, reason: 'duplicate id' };
+      if (via === 'network') state.detection.networkSeen = true;
+      if (via === 'dom' && state.detection.networkSeen) {
+        return { counted: false, reason: 'dom fallback ignored, network detection works' };
+      }
       if (eventId) {
         state.seenIds.push(eventId);
         if (state.seenIds.length > MAX_SEEN_IDS) {
@@ -87,8 +96,15 @@
       const bucket = dayBucket(state, LCT.dates.localDayKey());
       bucket.total += 1;
       if (kind === 'reply') bucket.replies += 1;
+      state.detection.lastEventAt = Date.now();
+      state.detection.lastVia = via || 'network';
       return { counted: true };
-    }).then(({ state, result }) => ({ counted: result.counted, summary: summarise(state) }));
+    }).then(({ state, result }) => ({
+      counted: result.counted,
+      reason: result.reason,
+      summary: summarise(state),
+      detection: state.detection,
+    }));
   }
 
   /** Manual correction from the popup. Never goes below zero. */

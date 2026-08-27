@@ -15,6 +15,7 @@
     widgetEnabled: $('#widgetEnabled'),
     weekStart: $('#weekStart'),
     debug: $('#debug'),
+    detection: $('#detection'),
   };
 
   function send(message) {
@@ -57,11 +58,21 @@
     els.debug.checked = !!settings.debug;
   }
 
+  function renderDetection(detection) {
+    const d = detection || {};
+    const mode = d.networkSeen ? 'network' : 'DOM fallback (no network match yet)';
+    const last = d.lastEventAt
+      ? new Date(d.lastEventAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+      : 'nothing counted yet';
+    els.detection.textContent = `Detection: ${mode} \u00b7 last: ${last}`;
+  }
+
   async function refresh() {
     const state = await storage.getState();
     renderSummary(storage.summarise(state));
     renderChart(state);
     renderSettings(state.settings);
+    renderDetection(state.detection);
   }
 
   async function adjust(delta) {
