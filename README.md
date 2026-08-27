@@ -28,11 +28,20 @@ Deliberately not counted: failed sends, edits (a comment URN in the path, or a
 carries a `commentary` field), and every other request through the shared
 `/graphql` endpoint.
 
-If LinkedIn's request shape changes enough that nothing matches, a DOM fallback
-takes over: it watches for the comment editor being submitted (the submit button
-or Enter with text in the box). The worker ignores fallback events the moment
-network detection fires even once, so the two can never both count the same
-comment. The popup shows which one is live.
+Because LinkedIn's class names are obfuscated and rotate, a second detector
+identifies the "post comment" button by purpose instead of styling:
+
+- its label (`aria-label`, `title`, `data-control-name`, text) mentions a comment;
+- it is **not** the toolbar toggle that merely opens the editor — that one
+  carries `aria-expanded` and sits in the post's social-actions bar;
+- and it either carries LinkedIn's `componentkey` containing
+  `commentButtonSection`, or has the editor's text input within two ancestor
+  levels. That walk stays shallow on purpose: a post keeps its collapsed editor
+  in the DOM, so going further up finds an editor that isn't next to the button.
+
+The worker ignores click events the moment network detection fires even once, so
+the two can never both count the same comment. The popup shows which one is
+live, and **Reset detection** clears that latch.
 
 Counts are stored per local day (`YYYY-MM-DD`). Week and month totals are summed
 from those day buckets at read time, so nothing has to reset at midnight and the

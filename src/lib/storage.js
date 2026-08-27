@@ -161,7 +161,12 @@
   }
 
   function resetDiag() {
-    return update((state) => { state.diag = emptyState().diag; }).then(({ state }) => state.diag);
+    return update((state) => {
+      state.diag = emptyState().diag;
+      // Clearing the latch lets click detection take over again if a bad
+      // network match ever silenced it.
+      state.detection.networkSeen = false;
+    }).then(({ state }) => state.diag);
   }
 
   LCT.storage = {

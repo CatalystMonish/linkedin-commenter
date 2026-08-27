@@ -65,7 +65,7 @@
 
   function renderDetection(detection) {
     const d = detection || {};
-    const mode = d.networkSeen ? 'network' : 'DOM fallback (no network match yet)';
+    const mode = d.networkSeen ? 'network' : 'click detection';
     const last = d.lastEventAt
       ? new Date(d.lastEventAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
       : 'nothing counted yet';

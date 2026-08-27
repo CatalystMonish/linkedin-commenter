@@ -122,11 +122,11 @@
 
   function applyPosition(pos) {
     if (!pos) {
-      // Default: bottom right, clear of LinkedIn's messaging bar.
+      // Default: top right, below LinkedIn's fixed nav.
       card.style.left = '';
-      card.style.top = '';
-      card.style.right = '24px';
-      card.style.bottom = '96px';
+      card.style.bottom = '';
+      card.style.right = '22px';
+      card.style.top = '60px';
       return;
     }
     const p = clamp(pos);

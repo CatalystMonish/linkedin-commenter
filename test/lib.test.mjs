@@ -97,6 +97,10 @@ eq('dom ignored once network works', dom2.counted, false);
 eq('dom ignore reason', dom2.reason, 'dom fallback ignored, network detection works');
 eq('total after gating', (await LCT.storage.getSummary()).today, 2);
 eq('last source recorded', store.lct.detection.lastVia, 'network');
+await LCT.storage.resetDiag();
+eq('reset clears the network latch', store.lct.detection.networkSeen, false);
+const dom3 = await LCT.storage.recordComment('dom-3', 'comment', 'dom');
+eq('dom counts again after reset', dom3.counted, true);
 
 console.log(fails ? `\n${fails} FAILED` : '\nall passed');
 process.exit(fails ? 1 : 0);
