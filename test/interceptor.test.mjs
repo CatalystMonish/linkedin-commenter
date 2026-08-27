@@ -1,4 +1,5 @@
 import fs from 'fs';
+import process from 'process';
 import vm from 'vm';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -146,6 +147,35 @@ await expectFetch('comments/<urn> edit', `${HOST}/voyager/api/feed/comments/urn%
   const got = captured.slice(before);
   if (got.length === 1 && got[0].kind === 'reply') console.log('ok   xhr blob reply');
   else { fails++; console.log('FAIL xhr blob reply:', JSON.stringify(got)); }
+}
+
+// --- a failing request must not surface as an extension error ---
+// The wrapper must hand back the ORIGINAL promise. Returning a derived one
+// makes the page's own unhandled rejections get blamed on this extension
+// (chrome://extensions: "Uncaught (in promise) TypeError: Failed to fetch").
+{
+  const rejection = Promise.reject(new TypeError('Failed to fetch'));
+  rejection.catch(() => {}); // keep node quiet; identity is what we assert
+  const original = { p: rejection };
+  window.fetch = () => original.p;
+  // re-wrap a fresh interceptor over this fetch
+  const ctx2 = vm.createContext({
+    window: { ...window, __LCT_PATCHED__: false, fetch: () => original.p },
+    XMLHttpRequest: FakeXHR, console, Promise, Date, Math, URL, URLSearchParams, Blob,
+    Object, String, Number, JSON, setTimeout,
+  });
+  ctx2.window.window = ctx2.window;
+  vm.runInContext(fs.readFileSync(`${ROOT}/src/interceptor.js`, 'utf8'), ctx2, { filename: 'interceptor.js' });
+  const returned = ctx2.window.fetch(`${HOST}/voyager/api/socialDash/normComments`, { method: 'POST', body: CREATE });
+  returned.catch(() => {});
+  if (returned === original.p) console.log('ok   failed fetch returns the original promise');
+  else { fails++; console.log('FAIL failed fetch returns the original promise'); }
+
+  let unhandled = null;
+  process.on('unhandledRejection', (e) => { unhandled = e; });
+  await tick();
+  if (!unhandled) console.log('ok   no unhandled rejection from the wrapper');
+  else { fails++; console.log('FAIL unhandled rejection:', unhandled && unhandled.message); }
 }
 
 // --- event shape + unique ids ---

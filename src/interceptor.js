@@ -168,14 +168,20 @@
       const call = origFetch.apply(this, arguments);
       if (!url) return call;
 
-      return call.then((res) => {
-        try {
+      // Observe the call, but hand the caller back the original promise. A
+      // derived promise would make the page's own unhandled rejections (blocked
+      // trackers, aborted requests) surface as errors from this extension, and
+      // would put us in the middle of LinkedIn's promise chain for no reason.
+      call.then(
+        (res) => {
           Promise.resolve(bodyPromise)
             .then((body) => evaluate(url, body, res.status, res.ok))
             .catch(() => {});
-        } catch (e) { /* never break the page */ }
-        return res;
-      });
+        },
+        () => { /* request failed; nothing to count */ }
+      );
+
+      return call;
     };
   }
 
