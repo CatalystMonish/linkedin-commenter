@@ -4,6 +4,7 @@
   const { MSG_SOURCE, MSG } = LCT;
 
   const ALLOWED = new Set([MSG.COMMENT_CREATED]);
+  let debugOn = false;
 
   function send(message) {
     try {
@@ -22,6 +23,7 @@
     if (!data || data.source !== MSG_SOURCE) return;
     if (!ALLOWED.has(data.type)) return;
 
+    if (debugOn) console.debug('[LCT] relay ->', data.kind, data.id);
     send({
       type: MSG.COMMENT_CREATED,
       id: typeof data.id === 'string' ? data.id : null,
@@ -31,6 +33,7 @@
 
   /** Mirror the debug setting into the page world. */
   function pushDebug(value) {
+    debugOn = !!value;
     window.postMessage({ source: MSG_SOURCE, type: MSG.SET_DEBUG, value: !!value }, window.location.origin);
   }
 

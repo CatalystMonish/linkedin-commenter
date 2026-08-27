@@ -11,14 +11,17 @@
 
   const SOURCE = 'LCT';
 
-  // Cheap gate: anything worth a second look is a POST to the voyager API.
+  // Cheap gate: a POST to the voyager API, or to anything with "comment" in it.
   const VOYAGER_RE = /\/voyager\/api\//i;
-  // REST comment collection, e.g. /voyager/api/socialDash/normComments
-  const REST_COMMENT_RE = /normComments(\/[^/]+)?\/?$/i;
-  const GRAPHQL_RE = /\/voyager\/api\/graphql/i;
-  // The graphql endpoint carries reactions, follows and feed fetches too, so a
-  // create has to name itself.
-  const GRAPHQL_CREATE_RE = /(normComments|createComment|commentCreate)/i;
+  const COMMENT_HINT_RE = /comment/i;
+  // A segment after the comment collection means we address an existing
+  // comment: an edit or a delete, not a new one.
+  const EXISTING_COMMENT_RE = /(normComments|comments)\/[^/?#]+/i;
+  // Creating a post also carries a "commentary" field, so posts/shares are
+  // ruled out explicitly.
+  const SHARE_RE = /(normShares|ugcPosts|shares|posts|articles)/i;
+  // Comment creates always reference the thread they hang off.
+  const THREAD_RE = /"(threadUrn|parentComment|parentCommentUrn|postUrn|objectUrn|commentsUrn)"\s*:/;
 
   let debug = false;
   try {
@@ -51,16 +54,30 @@
   }
 
   function isCandidate(url, method) {
-    return String(method || 'GET').toUpperCase() === 'POST' && VOYAGER_RE.test(String(url));
+    if (String(method || 'GET').toUpperCase() !== 'POST') return false;
+    const u = String(url || '');
+    return VOYAGER_RE.test(u) || COMMENT_HINT_RE.test(u);
   }
 
-  /**
-   * A trailing URN segment after normComments means we are addressing an
-   * existing comment — an edit or a delete, not a new one.
-   */
-  function isRestCreatePath(pathname) {
-    const m = pathname.match(REST_COMMENT_RE);
-    return !!m && !m[1];
+  /** Bodies arrive as strings, URLSearchParams, FormData or Blobs. */
+  function bodyToText(body) {
+    if (body == null) return Promise.resolve(null);
+    if (typeof body === 'string') return Promise.resolve(body);
+    try {
+      if (typeof URLSearchParams !== 'undefined' && body instanceof URLSearchParams) {
+        return Promise.resolve(body.toString());
+      }
+      if (typeof Blob !== 'undefined' && body instanceof Blob && typeof body.text === 'function') {
+        return body.text().catch(() => null);
+      }
+      if (typeof FormData !== 'undefined' && body instanceof FormData) {
+        const parts = [];
+        body.forEach((v, k) => parts.push(k + '=' + (typeof v === 'string' ? v : '[file]')));
+        return Promise.resolve(parts.join('&'));
+      }
+      if (typeof body.text === 'function') return Promise.resolve(body.text()).catch(() => null);
+    } catch (e) { /* fall through */ }
+    return Promise.resolve(null);
   }
 
   function looksLikeComment(body) {
@@ -76,27 +93,41 @@
     return /"parentComment(Urn)?"\s*:\s*["{]/.test(body || '');
   }
 
-  /** Decide whether a finished request created a comment. */
+  function skip(why) {
+    return { match: false, why: why };
+  }
+
+  /**
+   * Decide whether a finished request created a comment. Driven by the body
+   * rather than the exact path, so LinkedIn moving the endpoint doesn't
+   * silently stop the count.
+   */
   function classify(url, body) {
     const pathname = pathOf(url);
-    if (REST_COMMENT_RE.test(pathname)) {
-      if (!isRestCreatePath(pathname)) return { match: false, why: 'urn in path (edit/delete)' };
-      if (!looksLikeComment(body)) return { match: false, why: 'body is not a comment create' };
-      return { match: true, kind: isReply(body) ? 'reply' : 'comment' };
-    }
-    if (GRAPHQL_RE.test(pathname)) {
-      if (!GRAPHQL_CREATE_RE.test(String(url)) && !GRAPHQL_CREATE_RE.test(body || '')) {
-        return { match: false, why: 'graphql, not a comment operation' };
-      }
-      if (!looksLikeComment(body)) return { match: false, why: 'graphql, body is not a comment create' };
-      return { match: true, kind: isReply(body) ? 'reply' : 'comment' };
-    }
-    return { match: false, why: 'not a comment endpoint' };
+    const full = String(url);
+    if (!looksLikeComment(body)) return skip('body is not a comment create');
+    if (EXISTING_COMMENT_RE.test(pathname)) return skip('addresses an existing comment (edit/delete)');
+
+    const pathSaysComment = COMMENT_HINT_RE.test(pathname) || COMMENT_HINT_RE.test(full);
+    if (SHARE_RE.test(pathname) && !pathSaysComment) return skip('post/share creation, not a comment');
+
+    const bodySaysThread = THREAD_RE.test(body);
+    if (!pathSaysComment && !bodySaysThread) return skip('no comment signal in path or body');
+
+    return { match: true, kind: isReply(body) ? 'reply' : 'comment' };
   }
 
   function evaluate(url, body, status, ok) {
     const verdict = classify(url, body);
-    log(ok ? 'POST' : 'POST (failed)', status, pathOf(url), verdict.match ? `MATCH ${verdict.kind}` : `skip: ${verdict.why}`);
+    if (debug) {
+      const preview = body ? String(body).slice(0, 220) : '(no body)';
+      log(
+        'POST', status, pathOf(url),
+        verdict.match ? 'MATCH ' + verdict.kind : 'skip: ' + verdict.why,
+        ok ? '' : '(request failed)',
+        '\n  body:', preview
+      );
+    }
     if (!verdict.match || !ok) return;
     window.postMessage(
       { source: SOURCE, type: 'comment_created', id: uuid(), kind: verdict.kind, ts: Date.now() },
@@ -121,13 +152,11 @@
           method = (init && init.method) || input.method || 'GET';
         }
         if (isCandidate(url, method)) {
-          if (init && typeof init.body === 'string') {
-            bodyPromise = Promise.resolve(init.body);
+          if (init && init.body != null) {
+            bodyPromise = bodyToText(init.body);
           } else if (input && typeof input === 'object' && typeof input.clone === 'function') {
             // Clone before the request is sent, otherwise the body is gone.
             bodyPromise = input.clone().text().catch(() => null);
-          } else if (init && init.body) {
-            bodyPromise = Promise.resolve(null);
           }
         } else {
           url = null;
@@ -166,12 +195,12 @@
     try {
       const meta = this.__lct;
       if (meta && isCandidate(meta.url, meta.method)) {
-        const bodyText = typeof body === 'string' ? body : null;
+        const bodyPromise = bodyToText(body);
         const xhr = this;
         this.addEventListener('loadend', function () {
-          try {
-            evaluate(meta.url, bodyText, xhr.status, xhr.status >= 200 && xhr.status < 300);
-          } catch (e) { /* ignore */ }
+          bodyPromise
+            .then((text) => evaluate(meta.url, text, xhr.status, xhr.status >= 200 && xhr.status < 300))
+            .catch(() => {});
         });
       }
     } catch (e) { /* never break the page */ }

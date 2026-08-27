@@ -30,9 +30,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === MSG.COMMENT_CREATED) {
     // Only trust events relayed from a LinkedIn tab.
     const url = sender && sender.url ? sender.url : '';
-    if (!/^https:\/\/www\.linkedin\.com\//.test(url)) return;
+    if (!/^https:\/\/[a-z.]*linkedin\.com\//.test(url)) {
+      console.debug('[LCT] event rejected, sender is not LinkedIn:', url);
+      return;
+    }
 
     LCT.storage.recordComment(message.id, message.kind).then(async ({ counted, summary }) => {
+      console.debug('[LCT] event', message.kind, message.id, counted ? 'counted' : 'duplicate, ignored', summary);
       if (!counted) return;
       await refreshBadge(summary);
       broadcast(summary);

@@ -30,7 +30,8 @@ const window = {
 window.window = window;
 
 const ctx = vm.createContext({
-  window, XMLHttpRequest: FakeXHR, console, Promise, Date, Math, URL, Object, String, Number, JSON,
+  window, XMLHttpRequest: FakeXHR, console, Promise, Date, Math, URL, URLSearchParams, Blob,
+  FormData: undefined, Object, String, Number, JSON, setTimeout,
 });
 vm.runInContext(fs.readFileSync(`${ROOT}/src/interceptor.js`, 'utf8'), ctx, { filename: 'interceptor.js' });
 
@@ -114,6 +115,37 @@ await expectFetch('graphql create without commentary', `${HOST}/voyager/api/grap
   await tick();
   if (captured.length === before) console.log('ok   xhr failure not counted');
   else { fails++; console.log('FAIL xhr failure not counted'); }
+}
+
+// --- endpoints that moved / other shapes ---
+const SHARE = JSON.stringify({ commentary: { text: 'my new post' }, visibility: 'ANYONE', origin: 'FEED', allowedCommentersScope: 'ALL' });
+await expectFetch('feed/comments path (no "norm")', `${HOST}/voyager/api/feed/comments`, CREATE, 'comment');
+await expectFetch('unknown path, thread in body', `${HOST}/voyager/api/socialDash/somethingNew`, CREATE, 'comment');
+await expectFetch('post creation not counted', `${HOST}/voyager/api/contentcreation/normShares`, SHARE, null);
+await expectFetch('post creation via ugcPosts', `${HOST}/voyager/api/ugcPosts`, SHARE, null);
+await expectFetch('comments/<urn> edit', `${HOST}/voyager/api/feed/comments/urn%3Ali%3Acomment%3A123`, CREATE, null);
+
+// non-string bodies
+{
+  const before = captured.length;
+  nextResponse = { status: 200, ok: true };
+  await window.fetch(`${HOST}/voyager/api/socialDash/normComments`, { method: 'POST', body: new ctx.Blob([CREATE]) });
+  await tick();
+  const got = captured.slice(before);
+  if (got.length === 1) console.log('ok   blob body');
+  else { fails++; console.log('FAIL blob body:', JSON.stringify(got)); }
+}
+{
+  const before = captured.length;
+  const xhr = new ctx.XMLHttpRequest();
+  xhr.open('POST', `${HOST}/voyager/api/socialDash/normComments`);
+  xhr.send(new ctx.Blob([REPLY]));
+  xhr.finish(201);
+  await tick();
+  await tick();
+  const got = captured.slice(before);
+  if (got.length === 1 && got[0].kind === 'reply') console.log('ok   xhr blob reply');
+  else { fails++; console.log('FAIL xhr blob reply:', JSON.stringify(got)); }
 }
 
 // --- event shape + unique ids ---
