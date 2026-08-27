@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const captured = [];
+const observed = [];
 const listeners = [];
 let nextResponse = { status: 200, ok: true };
 
@@ -21,7 +22,7 @@ const window = {
   localStorage: { getItem: () => null },
   crypto: { randomUUID: () => 'id-' + captured.length },
   addEventListener: (t, fn) => { if (t === 'message') listeners.push(fn); },
-  postMessage: (msg) => captured.push(msg),
+  postMessage: (msg) => { if (msg && msg.type === 'comment_created') captured.push(msg); else observed.push(msg); },
   fetch: (input, init) => {
     const res = { status: nextResponse.status, ok: nextResponse.ok };
     return Promise.resolve(res);
@@ -165,6 +166,7 @@ await expectFetch('comments/<urn> edit', `${HOST}/voyager/api/feed/comments/urn%
     Object, String, Number, JSON, setTimeout,
   });
   ctx2.window.window = ctx2.window;
+  ctx2.window.postMessage = () => {};
   vm.runInContext(fs.readFileSync(`${ROOT}/src/interceptor.js`, 'utf8'), ctx2, { filename: 'interceptor.js' });
   const returned = ctx2.window.fetch(`${HOST}/voyager/api/socialDash/normComments`, { method: 'POST', body: CREATE });
   returned.catch(() => {});

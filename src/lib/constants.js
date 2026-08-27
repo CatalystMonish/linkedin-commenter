@@ -12,9 +12,14 @@
     ADJUST: 'adjust',
     SET_SETTING: 'set_setting',
     SUMMARY_UPDATED: 'summary_updated',
+    HELLO: 'hello',           // a detector loaded
+    OBSERVED: 'observed',     // a candidate request was inspected
+    RESET_DIAG: 'reset_diag',
   };
 
   LCT.STORAGE_KEY = 'lct';
+  /** How many rejected requests to keep for the popup's diagnostics. */
+  LCT.MAX_DIAG_SKIPS = 8;
   LCT.SCHEMA_VERSION = 1;
 
   /** How many recent event ids to remember for de-duplication. */

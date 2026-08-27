@@ -100,5 +100,10 @@ Filter the console on `[LCT]`. Post one comment and confirm exactly one `MATCH`.
 Then like a post, react to a comment, follow someone and edit an old comment —
 none of those may produce a `MATCH`.
 
+The popup's **Diagnostics** panel says the same thing without a console: which
+detectors loaded, how many candidate POSTs were inspected, whether network
+detection has ever matched, when the editor was last submitted, and the reason
+each recent request was rejected. **Copy** puts it on the clipboard.
+
 Storage and worker logs: `chrome://extensions` → the extension's **service
 worker** link.

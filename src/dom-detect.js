@@ -15,6 +15,9 @@
   const REPLY_SEL = '[class*="comments-comment-item"], [class*="comments-comment-entity"], article[class*="comment"]';
   const SUBMIT_CLASS_RE = /comment.*submit|submit.*comment/i;
   const SUBMIT_TEXT_RE = /^(comment|reply|post)$/i;
+  const CANCEL_TEXT_RE = /(cancel|close|discard|delete|dismiss)/i;
+  /** LinkedIn empties the editor once the comment is accepted. */
+  const CLEAR_CHECK_MS = 1500;
   /** One submit per editor per second: a click and an Enter can both fire. */
   const DEBOUNCE_MS = 1000;
 
@@ -42,6 +45,26 @@
     return !!(el.closest && el.closest(BOX_SEL) && editorText(el.closest(BOX_SEL)));
   }
 
+  /**
+   * Arm a check after a plausible submit gesture: if the editor had text and is
+   * empty a moment later, the comment went through. Independent of button
+   * markup and of the request shape.
+   */
+  function armClearCheck(box, why) {
+    const before = editorText(box);
+    if (!before) return;
+    setTimeout(() => {
+      const after = editorText(box);
+      if (after === '') fire(box, why + '+cleared');
+      else log('editor not cleared after', why, '- not counting');
+    }, CLEAR_CHECK_MS);
+  }
+
+  function isCancelControl(el) {
+    const label = ((el && el.getAttribute && el.getAttribute('aria-label')) || (el && el.textContent) || '').trim();
+    return CANCEL_TEXT_RE.test(label);
+  }
+
   function kindFor(box) {
     return box && box.closest && box.closest(REPLY_SEL) ? 'reply' : 'comment';
   }
@@ -67,10 +90,17 @@
 
   document.addEventListener('click', (e) => {
     const el = e.target && e.target.closest ? e.target.closest('button, [role="button"]') : null;
-    if (!el || !isSubmitControl(el)) return;
+    if (!el) return;
     const box = el.closest(BOX_SEL);
-    if (!editorText(box)) return log('submit clicked but editor is empty');
-    fire(box, 'click');
+    if (!box || !editorText(box)) return;
+
+    if (isSubmitControl(el)) {
+      fire(box, 'click');
+      return;
+    }
+    // Unknown control inside a comment editor: fall back to watching for the
+    // editor being emptied, which only happens on a successful post.
+    if (!isCancelControl(el)) armClearCheck(box, 'click');
   }, true);
 
   document.addEventListener('keydown', (e) => {
@@ -81,7 +111,14 @@
     if (!box) return;
     if (!(el.textContent || '').trim()) return;
     fire(box, 'enter');
+    // Enter may only insert a newline in some editors; the clear check settles it.
+    armClearCheck(box, 'enter');
   }, true);
+
+  try {
+    const hello = chrome.runtime.sendMessage({ type: MSG.HELLO, which: 'dom', at: Date.now() });
+    if (hello && typeof hello.catch === 'function') hello.catch(() => {});
+  } catch (e) { /* extension reloaded */ }
 
   LCT.storage.getState().then((state) => { debugOn = !!state.settings.debug; }).catch(() => {});
   chrome.storage.onChanged.addListener((changes, area) => {
@@ -91,5 +128,5 @@
   });
 
   // Exposed for the tests.
-  LCT.domDetect = { isSubmitControl, kindFor, editorText };
+  LCT.domDetect = { isSubmitControl, isCancelControl, kindFor, editorText };
 })();

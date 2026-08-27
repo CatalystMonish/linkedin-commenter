@@ -71,3 +71,18 @@ h1 { margin: 0; font-size: 16px; }
 
 select { background: transparent; color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; }
 footer { border-top: 1px solid var(--line); padding-top: 8px; margin-top: 4px; }
+
+details#diagBox { border-top: 1px solid var(--line); padding-top: 8px; margin-top: 4px; }
+details#diagBox summary { cursor: pointer; color: var(--muted); font-size: 11px; }
+.diag { margin-top: 8px; font-size: 11px; line-height: 1.5; }
+.diag .k { color: var(--muted); }
+.diag .bad { color: #c0392b; font-weight: 700; }
+.diag .good { color: var(--accent); font-weight: 700; }
+.diag ul { margin: 4px 0 0; padding-left: 14px; }
+.diag li { color: var(--muted); word-break: break-all; }
+.diag-actions { display: flex; gap: 6px; margin-top: 8px; }
+.diag-actions button {
+  flex: 1; padding: 4px 0; border: 1px solid var(--line); border-radius: 6px;
+  background: transparent; color: var(--fg); font-size: 11px; cursor: pointer;
+}
+.diag-actions button:hover { border-color: var(--accent); color: var(--accent); }

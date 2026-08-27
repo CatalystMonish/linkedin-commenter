@@ -24,8 +24,39 @@ function broadcast(summary) {
   } catch (e) { /* no listeners */ }
 }
 
+/* Observed-request reports arrive in bursts; batch them so a busy feed doesn't
+   hammer storage. */
+let observedQueue = [];
+let flushTimer = null;
+
+function queueObserved(item) {
+  observedQueue.push(item);
+  if (flushTimer) return;
+  flushTimer = setTimeout(() => {
+    const batch = observedQueue;
+    observedQueue = [];
+    flushTimer = null;
+    LCT.storage.noteObserved(batch);
+  }, 2000);
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || typeof message.type !== 'string') return;
+
+  if (message.type === MSG.HELLO) {
+    LCT.storage.noteHello(message.which, message.at || Date.now());
+    return;
+  }
+
+  if (message.type === MSG.OBSERVED) {
+    queueObserved(message);
+    return;
+  }
+
+  if (message.type === MSG.RESET_DIAG) {
+    LCT.storage.resetDiag().then(sendResponse);
+    return true;
+  }
 
   if (message.type === MSG.COMMENT_CREATED) {
     // Only trust events relayed from a LinkedIn tab.
@@ -37,6 +68,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     LCT.storage.recordComment(message.id, message.kind, message.via).then(async ({ counted, reason, summary }) => {
       console.debug('[LCT]', message.via || 'network', 'event', message.kind, counted ? 'counted' : 'ignored: ' + reason, summary);
+      if (message.via === 'dom') LCT.storage.noteDomSubmit(Date.now());
       if (!counted) return;
       await refreshBadge(summary);
       broadcast(summary);

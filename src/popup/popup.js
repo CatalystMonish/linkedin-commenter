@@ -16,7 +16,12 @@
     weekStart: $('#weekStart'),
     debug: $('#debug'),
     detection: $('#detection'),
+    diag: $('#diag'),
+    copyDiag: $('#copyDiag'),
+    resetDiag: $('#resetDiag'),
   };
+
+  let lastState = null;
 
   function send(message) {
     return chrome.runtime.sendMessage(message);
@@ -67,12 +72,34 @@
     els.detection.textContent = `Detection: ${mode} \u00b7 last: ${last}`;
   }
 
+  function time(ts) {
+    return ts ? new Date(ts).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', second: '2-digit' }) : null;
+  }
+
+  function renderDiag(state) {
+    const d = state.diag || {};
+    const yes = (ts) => (ts ? `<span class="good">loaded ${time(ts)}</span>` : '<span class="bad">NOT LOADED</span>');
+    const skips = (d.skips || [])
+      .map((s) => `<li>${s.status} ${s.path} &mdash; ${s.why || 'counted'}</li>`)
+      .join('');
+    els.diag.innerHTML = `
+      <div><span class="k">Interceptor:</span> ${yes(d.interceptorAt)}</div>
+      <div><span class="k">DOM fallback:</span> ${yes(d.domAt)}</div>
+      <div><span class="k">Candidate POSTs seen:</span> ${d.postsSeen || 0}</div>
+      <div><span class="k">Last editor submit:</span> ${time(d.lastDomAt) || 'never'}</div>
+      <div><span class="k">Network detection:</span> ${state.detection && state.detection.networkSeen ? '<span class="good">working</span>' : '<span class="bad">never matched</span>'}</div>
+      ${skips ? `<div class="k" style="margin-top:6px">Recent rejects:</div><ul>${skips}</ul>` : ''}
+    `;
+  }
+
   async function refresh() {
     const state = await storage.getState();
     renderSummary(storage.summarise(state));
     renderChart(state);
     renderSettings(state.settings);
     renderDetection(state.detection);
+    renderDiag(state);
+    lastState = state;
   }
 
   async function adjust(delta) {
@@ -98,6 +125,25 @@
 
   chrome.runtime.onMessage.addListener((message) => {
     if (message && message.type === MSG.SUMMARY_UPDATED) refresh();
+  });
+
+  els.copyDiag.addEventListener('click', async () => {
+    const payload = JSON.stringify(
+      { diag: lastState && lastState.diag, detection: lastState && lastState.detection, days: lastState && lastState.days },
+      null, 2
+    );
+    try {
+      await navigator.clipboard.writeText(payload);
+      els.copyDiag.textContent = 'Copied';
+      setTimeout(() => { els.copyDiag.textContent = 'Copy'; }, 1200);
+    } catch (e) {
+      els.diag.textContent = payload; // clipboard blocked: show it instead
+    }
+  });
+
+  els.resetDiag.addEventListener('click', async () => {
+    await send({ type: MSG.RESET_DIAG });
+    refresh();
   });
 
   els.date.textContent = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' });

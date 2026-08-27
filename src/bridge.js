@@ -3,7 +3,7 @@
   const LCT = globalThis.LCT;
   const { MSG_SOURCE, MSG } = LCT;
 
-  const ALLOWED = new Set([MSG.COMMENT_CREATED]);
+  const ALLOWED = new Set([MSG.COMMENT_CREATED, MSG.OBSERVED, MSG.HELLO]);
   let debugOn = false;
 
   function send(message) {
@@ -22,6 +22,23 @@
     const data = event.data;
     if (!data || data.source !== MSG_SOURCE) return;
     if (!ALLOWED.has(data.type)) return;
+
+    if (data.type === MSG.HELLO) {
+      send({ type: MSG.HELLO, which: 'interceptor', at: Date.now() });
+      return;
+    }
+
+    if (data.type === MSG.OBSERVED) {
+      send({
+        type: MSG.OBSERVED,
+        path: String(data.path || '').slice(0, 200),
+        status: Number(data.status) || 0,
+        match: !!data.match,
+        why: data.why ? String(data.why).slice(0, 120) : null,
+        at: Date.now(),
+      });
+      return;
+    }
 
     if (debugOn) console.debug('[LCT] relay ->', data.kind, data.id);
     send({

@@ -137,6 +137,23 @@
         '\n  body:', preview
       );
     }
+    // Report what we saw either way, so the popup can show why a comment was
+    // missed without the user having to open a console.
+    if (isCandidate(url, 'POST')) {
+      window.postMessage(
+        {
+          source: SOURCE,
+          type: 'observed',
+          path: pathOf(url),
+          status: status,
+          match: !!verdict.match && !!ok,
+          why: verdict.match ? (ok ? null : 'matched, but the request failed') : verdict.why,
+          at: Date.now(),
+        },
+        window.location.origin
+      );
+    }
+
     if (!verdict.match || !ok) return;
     window.postMessage(
       { source: SOURCE, type: 'comment_created', id: uuid(), kind: verdict.kind, via: 'network', ts: Date.now() },
@@ -222,5 +239,6 @@
     return origSend.apply(this, arguments);
   };
 
+  window.postMessage({ source: SOURCE, type: 'hello', which: 'interceptor', at: Date.now() }, window.location.origin);
   log('interceptor installed');
 })();

@@ -16,6 +16,8 @@
       // fallback events are ignored so the two can't both count the same
       // comment.
       detection: { networkSeen: false, lastEventAt: null, lastVia: null },
+      // Purely for the popup's diagnostics panel — how detection is behaving.
+      diag: { interceptorAt: null, domAt: null, postsSeen: 0, skips: [], lastDomAt: null },
     };
   }
 
@@ -26,6 +28,8 @@
     next.settings = { ...DEFAULT_SETTINGS, ...(state.settings || {}) };
     next.seenIds = Array.isArray(state.seenIds) ? state.seenIds : [];
     next.detection = { ...emptyState().detection, ...(state.detection || {}) };
+    next.diag = { ...emptyState().diag, ...(state.diag || {}) };
+    if (!Array.isArray(next.diag.skips)) next.diag.skips = [];
     next.schemaVersion = SCHEMA_VERSION;
     return next;
   }
@@ -132,7 +136,36 @@
     }).then(({ state }) => state);
   }
 
+  /** Record that a detector loaded in a page. */
+  function noteHello(which, at) {
+    return update((state) => {
+      if (which === 'dom') state.diag.domAt = at;
+      else state.diag.interceptorAt = at;
+    });
+  }
+
+  /** Record inspected requests and why they were not counted. */
+  function noteObserved(items) {
+    return update((state) => {
+      state.diag.postsSeen += items.length;
+      for (const item of items) {
+        if (item.match) continue;
+        state.diag.skips.unshift({ path: item.path, why: item.why, status: item.status, at: item.at });
+      }
+      state.diag.skips = state.diag.skips.slice(0, LCT.MAX_DIAG_SKIPS);
+    });
+  }
+
+  function noteDomSubmit(at) {
+    return update((state) => { state.diag.lastDomAt = at; });
+  }
+
+  function resetDiag() {
+    return update((state) => { state.diag = emptyState().diag; }).then(({ state }) => state.diag);
+  }
+
   LCT.storage = {
+    noteHello, noteObserved, noteDomSubmit, resetDiag,
     emptyState, getState, setState, getSummary, summarise,
     recordComment, adjust, setSetting, prune, STORAGE_KEY,
   };

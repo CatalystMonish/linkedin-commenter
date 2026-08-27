@@ -42,7 +42,7 @@ const ctx = vm.createContext({ document, chrome, console, Promise, Date, Math, W
 for (const f of ['src/lib/constants.js', 'src/lib/dates.js', 'src/lib/storage.js', 'src/dom-detect.js']) {
   vm.runInContext(fs.readFileSync(`${ROOT}/${f}`, 'utf8'), ctx, { filename: f });
 }
-const { isSubmitControl, kindFor, editorText } = ctx.LCT.domDetect;
+const { isSubmitControl, isCancelControl, kindFor, editorText } = ctx.LCT.domDetect;
 
 let fails = 0;
 const check = (name, got, want) => {
@@ -79,6 +79,14 @@ check('null element', isSubmitControl(null), false);
 check('reply detected by ancestor', kindFor(box({ reply: true }).box), 'reply');
 check('top-level comment', kindFor(box().box), 'comment');
 check('editor text read', editorText(box({ editorTextValue: '  hi  ' }).box), 'hi');
+
+// cancel-style controls must never arm the clear check
+const labelled = (text, aria) => ({ textContent: text, getAttribute: () => aria || null });
+check('Cancel button is a cancel control', isCancelControl(labelled('Cancel')), true);
+check('X close button by aria-label', isCancelControl(labelled('', 'Close')), true);
+check('Discard is a cancel control', isCancelControl(labelled('Discard draft')), true);
+check('Submit is not a cancel control', isCancelControl(labelled('Comment')), false);
+check('emoji button is not a cancel control', isCancelControl(labelled('', 'Open Emoji Keyboard')), false);
 
 console.log(fails ? `\n${fails} FAILED` : '\nall passed');
 process.exit(fails ? 1 : 0);
